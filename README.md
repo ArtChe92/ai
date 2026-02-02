@@ -4,7 +4,7 @@ AI Skills, Rules and Commands installer for Claude Code and Cursor.
 
 ## Установка и использование
 
-### Через npx (рекомендуется)
+### Через npx
 
 ```bash
 # Установить всё для Claude Code
@@ -14,16 +14,6 @@ npx @artche/ai claude
 npx @artche/ai cursor
 ```
 
-### Глобальная установка
-
-```bash
-npm install -g @artche/ai
-
-# Использование
-ai claude
-ai cursor
-```
-
 ## Частичная установка (--what)
 
 ```bash
@@ -31,7 +21,7 @@ ai cursor
 npx @artche/ai claude --what=skills
 
 # Конкретный скилл
-npx @artche/ai claude --what=skills/html
+npx @artche/ai claude --what=skills/my-skill
 
 # Несколько папок
 npx @artche/ai claude --what=skills,commands
@@ -46,12 +36,9 @@ npx @artche/ai claude --what=rules/my-rule.md
 your-project/
 ├── .claude/                    # или .cursor/
 │   ├── skills/
-│   │   ├── html/
-│   │   │   ├── SKILL.md
-│   │   │   └── elements/
 │   │   └── ...
 │   ├── commands/
-│   │   └── a11y-review.md
+│   │   └── ...
 │   ├── rules/
 │   │   └── ...
 │   └── agents/
@@ -75,30 +62,8 @@ your-project/
 npx @artche/ai@latest claude
 ```
 
-## Доступные пути для --what
-
-| Путь          | Описание    |
-| ------------- | ----------- |
-| `skills`      | Все скиллы  |
-| `skills/html` | HTML скилл  |
-| `commands`    | Все команды |
-| `rules`       | Все правила |
-| `agents`      | Все агенты  |
-
-Комбинируйте через запятую: `--what=skills/html,commands`
-
 ## Помощь
 
 ```bash
 npx @artche/ai --help
 ```
-
-## Contributing
-
-1. Fork репозитория: https://github.com/ArtChe92/ai
-2. Добавь скиллы/команды/правила в папку `ai/`
-3. Создай Pull Request
-
-## License
-
-MIT

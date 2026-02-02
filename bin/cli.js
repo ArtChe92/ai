@@ -4,7 +4,6 @@ const { install } = require("../src/install.js");
 
 const args = process.argv.slice(2);
 
-// Parse arguments
 const options = {
   target: null,
   what: null,
@@ -23,8 +22,7 @@ for (const arg of args) {
   }
 }
 
-// Show help
-if (options.help || !options.target) {
+if (options.help) {
   console.log(`
 AI Skills Installer
 
@@ -44,27 +42,27 @@ Examples:
   npx @artche/ai claude                      # Install everything
   npx @artche/ai cursor                      # Install for Cursor
   npx @artche/ai claude --what=skills        # Only skills/
-  npx @artche/ai claude --what=skills/html   # Only skills/html/
   npx @artche/ai claude --what=skills,rules  # skills/ and rules/
 
 Available paths for --what:
   skills            All skills
-  skills/<name>     Specific skill (e.g., skills/html)
+  skills/<name>     Specific skill
   commands          All commands
+  commands/<name>   Specific command
   rules             All rules
+  rules/<name>      Specific rule
   agents            All agents
+  agents/<name>     Specific agent
 `);
-  process.exit(options.help ? 0 : 1);
+  process.exit(0);
 }
 
-// Validate target
 if (options.target !== "claude" && options.target !== "cursor") {
   console.error(`❌ Invalid target: ${options.target}`);
   console.error("Available targets: claude, cursor");
   process.exit(1);
 }
 
-// Run install
 install(options).catch((err) => {
   console.error(`❌ Error: ${err.message}`);
   process.exit(1);
