@@ -1,0 +1,37 @@
+{
+  "name": "@artche/ai",
+  "version": "1.0.0",
+  "description": "AI Skills, Rules and Commands installer for Claude Code and Cursor",
+  "bin": {
+    "ai": "./bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "ai"
+  ],
+  "scripts": {
+    "test": "node bin/cli.js --help"
+  },
+  "keywords": [
+    "ai",
+    "claude",
+    "cursor",
+    "skills",
+    "accessibility",
+    "html"
+  ],
+  "author": "ArtChe92",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtChe92/ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ArtChe92/ai/issues"
+  },
+  "homepage": "https://github.com/ArtChe92/ai#readme"
+}
