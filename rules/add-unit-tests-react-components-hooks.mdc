@@ -1,0 +1,707 @@
+---
+description: Написание unit тестов для react хуков и компонентов
+alwaysApply: false
+---
+
+# Руководство по unit тестированию React-приложений (компоненты, хуки, контексты)
+
+## 1. Введение
+
+Цель этого гайда — дать практические правила написания тестов для:
+
+- React-компонентов
+- пользовательских хуков
+- провайдеров и контекстов
+
+Мы будем опираться на следующую философию:
+
+- тестируем **поведение с точки зрения пользователя**, а не внутреннюю реализацию;
+- пишем **простые, читаемые и устойчивые** тесты;
+- используем связку **Jest + React Testing Library (RTL)** и дополнения `@testing-library/jest-dom` и `@testing-library/user-event`.
+
+Тесты обычно находятся рядом с кодом:
+
+- `Button.tsx`
+- `Button.test.tsx` или `Button.spec.tsx`
+
+или в отдельных папках `__tests__`.
+
+---
+
+## 2. Общие принципы хороших тестов
+
+### 2.1. Тестируй поведение, а не реализацию
+
+**Нельзя:**
+
+- проверять внутреннее состояние (`wrapper.instance().state`, приватные поля и т.п.);
+- проверять, вызывался ли конкретный хук;
+- привязываться к структуре DOM радиоуток (конкретная вложенность, имена классов, `id` и т.п.), если это не часть контракта.
+
+**Нужно:**
+
+- имитировать действия пользователя (клик, ввод текста, навигация);
+- проверять то, что видит или получает пользователь:
+    - текст на экране;
+    - состояние кнопки (disabled / enabled);
+    - наличие/отсутствие элементов;
+    - сообщения об ошибке;
+    - изменение URL/роута;
+    - факты вызова внешних колбэков (например, `onSubmit`).
+
+---
+
+### 2.2. Приоритет селекторов (как искать элементы)
+
+Используем функции поиска из RTL (`screen.getBy*`, `screen.findBy*`, `screen.queryBy*`).
+
+Приоритет:
+
+1. `getByRole` — по роли (button, textbox, alert и т.д.) и имени:
+    ```ts
+    screen.getByRole('button', {name: /submit/i});
+    ```
+2. `getByLabelText` — по `<label for="...">`:
+    ```ts
+    screen.getByLabelText(/email/i);
+    ```
+3. `getByPlaceholderText` / `getByText` / `getByDisplayValue`.
+4. `getByAltText`, `getByTitle`.
+5. `getByTestId` — **только если других нормальных вариантов нет**.
+
+**Правило:** если элемент можно найти по тексту, роли или метке — ищи так.  
+`data-testid` — последний вариант.
+
+---
+
+### 2.3. Изоляция тестов и побочные эффекты
+
+- Каждый тест должен быть независим.
+- Нельзя делать реальные HTTP-запросы — их мокируем.
+- Все таймеры и моки надо сбрасывать в `afterEach` / `beforeEach` (или через Jest config).
+- DOM очищается автоматически между тестами (вручную `cleanup` не вызываем).
+
+---
+
+### 2.4. Используем `screen` и jest-dom
+
+Вместо:
+
+```ts
+const {getByText} = render(<MyComponent />);
+expect(getByText('Hello')).toBeTruthy();
+```
+
+лучше:
+
+```ts
+render(<MyComponent />);
+expect(screen.getByText('Hello')).toBeInTheDocument();
+```
+
+Преимущества:
+
+- все селекторы в одном месте (`screen.*`);
+- меньше деструктуризации;
+- лучше читаемость.
+
+Подключаем `@testing-library/jest-dom` один раз в setup-файле, чтобы были матчеры:
+
+- `toBeInTheDocument`
+- `toBeDisabled`
+- `toHaveTextContent`
+- `toHaveAttribute`
+- `toBeVisible`
+- и др.
+
+---
+
+## 3. Тестирование компонентов
+
+Основной паттерн:
+
+1. **Arrange** — подготовка:
+    - рендер компонента;
+    - подготовка моков и начальных данных.
+2. **Act** — действие:
+    - клик, ввод, изменение значения, смена пропсов.
+3. **Assert** — проверка результата:
+    - текст/элементы на экране;
+    - вызовы колбэков и т.д.
+
+### 3.1. Простой компонент
+
+```tsx
+// HelloWorld.tsx
+export const HelloWorld = () => <div>Hello World</div>;
+```
+
+```tsx
+// HelloWorld.test.tsx
+import {render, screen} from '@testing-library/react';
+import {HelloWorld} from './HelloWorld';
+
+test('рендерит текст "Hello World"', () => {
+    render(<HelloWorld />);
+    expect(screen.getByText('Hello World')).toBeInTheDocument();
+});
+```
+
+---
+
+### 3.2. Компонент с состоянием и событиями
+
+```tsx
+// Counter.tsx
+import {useState} from 'react';
+
+export const Counter = () => {
+    const [count, setCount] = useState(0);
+
+    return (
+        <div>
+            <p>
+                Count: <span>{count}</span>
+            </p>
+            <button onClick={() => setCount((c) => c + 1)}>Increment</button>
+        </div>
+    );
+};
+```
+
+```tsx
+// Counter.test.tsx
+import {render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {Counter} from './Counter';
+
+test('увеличивает счётчик при клике', async () => {
+    const user = userEvent.setup();
+    render(<Counter />);
+
+    expect(screen.getByText(/count:\s*0/i)).toBeInTheDocument();
+
+    const button = screen.getByRole('button', {name: /increment/i});
+    await user.click(button);
+
+    expect(screen.getByText(/count:\s*1/i)).toBeInTheDocument();
+});
+```
+
+**Моменты:**
+
+- используем `userEvent`, а не `fireEvent` для реального поведения;
+- проверяем текст, а не внутренний `state`.
+
+---
+
+### 3.3. Компоненты с пропсами
+
+```tsx
+// Greeting.tsx
+type GreetingProps = {name: string};
+
+export const Greeting = ({name}: GreetingProps) => <h1>Hello, {name}!</h1>;
+```
+
+```tsx
+// Greeting.test.tsx
+import {render, screen} from '@testing-library/react';
+import {Greeting} from './Greeting';
+
+test('отображает имя из пропсов', () => {
+    render(<Greeting name="Artem" />);
+    expect(screen.getByText(/hello,\s*artem!/i)).toBeInTheDocument();
+});
+```
+
+**Правило:**  
+Проверяем, что пропы корректно отражаются в UI (или в вызовах колбэков).
+
+---
+
+### 3.4. Компоненты, вызывающие колбэки
+
+```tsx
+// IconButton.tsx
+type IconButtonProps = {
+    onClick: () => void;
+};
+
+export const IconButton = ({onClick}: IconButtonProps) => (
+    <button aria-label="add" onClick={onClick}>
+        +
+    </button>
+);
+```
+
+```tsx
+// IconButton.test.tsx
+import {render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {IconButton} from './IconButton';
+
+test('вызывает onClick при клике', async () => {
+    const user = userEvent.setup();
+    const handleClick = jest.fn();
+
+    render(<IconButton onClick={handleClick} />);
+
+    await user.click(screen.getByRole('button', {name: /add/i}));
+
+    expect(handleClick).toHaveBeenCalledTimes(1);
+});
+```
+
+---
+
+### 3.5. Асинхронное поведение
+
+Когда компонент делает запросы / показывает лоадеры:
+
+- мокируем HTTP (fetch/axios);
+- используем `findBy*` или `waitFor` для ожидания.
+
+```tsx
+// UserName.tsx
+import {useEffect, useState} from 'react';
+
+export const UserName = () => {
+    const [name, setName] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch('/api/user')
+            .then((res) => res.json())
+            .then((data) => setName(data.name));
+    }, []);
+
+    if (!name) return <div>Loading...</div>;
+    return <div>User: {name}</div>;
+};
+```
+
+```tsx
+// UserName.test.tsx
+import {render, screen} from '@testing-library/react';
+import {UserName} from './UserName';
+
+test('показывает имя пользователя после загрузки', async () => {
+    // мок fetch
+    global.fetch = jest.fn().mockResolvedValue({
+        json: async () => ({name: 'Artem'})
+    } as any);
+
+    render(<UserName />);
+
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+
+    const userName = await screen.findByText(/user:\s*artem/i);
+    expect(userName).toBeInTheDocument();
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/user');
+});
+```
+
+---
+
+## 4. Тестирование пользовательских хуков
+
+Для тестирования хуков удобно использовать `@testing-library/react` (через тестовый компонент) или специализированные утилиты (`renderHook` в отдельных библиотеках/экспериментальных API).
+
+### 4.1. Тестирование через тестовый компонент
+
+```tsx
+// useCounter.ts
+import {useState} from 'react';
+
+export const useCounter = (initial = 0) => {
+    const [count, setCount] = useState(initial);
+    const inc = () => setCount((c) => c + 1);
+    const dec = () => setCount((c) => c - 1);
+    return {count, inc, dec};
+};
+```
+
+```tsx
+// useCounter.test.tsx
+import {renderHook, act} from '@testing-library/react';
+import {useCounter} from './useCounter';
+
+test('увеличивает и уменьшает счётчик', () => {
+    const {result} = renderHook(() => useCounter(0));
+
+    expect(result.current.count).toBe(0);
+
+    act(() => {
+        result.current.inc();
+    });
+    expect(result.current.count).toBe(1);
+
+    act(() => {
+        result.current.dec();
+    });
+    expect(result.current.count).toBe(0);
+});
+```
+
+**Правила для хуков:**
+
+- Хук не должен делать реальных запросов — мокируй всё внешнее.
+- Логику, зависящую от контекста/провайдеров, тестируй либо через `renderHook` с `wrapper`, либо через реальный компонент.
+
+---
+
+## 5. Тестирование контекста и провайдеров
+
+### 5.1. Простой контекст
+
+```tsx
+// ThemeContext.tsx
+import {createContext, useContext, ReactNode} from 'react';
+
+type Theme = 'light' | 'dark';
+
+const ThemeContext = createContext<Theme>('light');
+
+export const ThemeProvider = ({children}: {children: ReactNode}) => {
+    return <ThemeContext.Provider value="light">{children}</ThemeContext.Provider>;
+};
+
+export const useTheme = () => useContext(ThemeContext);
+```
+
+```tsx
+// DisplayTheme.tsx
+import {useTheme} from './ThemeContext';
+
+export const DisplayTheme = () => {
+    const theme = useTheme();
+    return <div>Current theme: {theme}</div>;
+};
+```
+
+```tsx
+// DisplayTheme.test.tsx
+import {render, screen} from '@testing-library/react';
+import {ThemeProvider} from './ThemeContext';
+import {DisplayTheme} from './DisplayTheme';
+
+test('читает и отображает значение из ThemeContext', () => {
+    render(
+        <ThemeProvider>
+            <DisplayTheme />
+        </ThemeProvider>
+    );
+
+    expect(screen.getByText(/current theme:\s*light/i)).toBeInTheDocument();
+});
+```
+
+---
+
+### 5.2. Контекст с возможностью изменения
+
+```tsx
+// AuthContext.tsx
+import {createContext, useContext, useState, ReactNode, useCallback} from 'react';
+
+type AuthContextValue = {
+    user: string | null;
+    login: (name: string) => void;
+    logout: () => void;
+};
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export const AuthProvider = ({children}: {children: ReactNode}) => {
+    const [user, setUser] = useState<string | null>(null);
+
+    const login = useCallback((name: string) => setUser(name), []);
+    const logout = useCallback(() => setUser(null), []);
+
+    return <AuthContext.Provider value={{user, login, logout}}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+    const ctx = useContext(AuthContext);
+    if (!ctx) {
+        throw new Error('useAuth must be used within AuthProvider');
+    }
+    return ctx;
+};
+```
+
+Тестируем поведение:
+
+```tsx
+// AuthContext.test.tsx
+import {renderHook, act} from '@testing-library/react';
+import {AuthProvider, useAuth} from './AuthContext';
+
+test('логин и логаут обновляют пользователя', () => {
+    const wrapper = ({children}: {children: React.ReactNode}) => (
+        <AuthProvider>{children}</AuthProvider>
+    );
+
+    const {result} = renderHook(() => useAuth(), {wrapper});
+
+    expect(result.current.user).toBeNull();
+
+    act(() => {
+        result.current.login('Artem');
+    });
+    expect(result.current.user).toBe('Artem');
+
+    act(() => {
+        result.current.logout();
+    });
+    expect(result.current.user).toBeNull();
+});
+```
+
+---
+
+## 6. Антипаттерны и распространённые ошибки
+
+### 6.1. Избыточное использование `data-testid`
+
+**Антипаттерн:**
+
+```tsx
+<button data-testid="submit-button">Submit</button>
+```
+
+```ts
+screen.getByTestId('submit-button');
+```
+
+Если у кнопки есть текст и роль, лучше:
+
+```ts
+screen.getByRole('button', {name: /submit/i});
+```
+
+> Используем `data-testid` только тогда, когда невозможно опереться на текст/роль/метку.
+
+---
+
+### 6.2. Ручной `cleanup`
+
+```ts
+// ❌ устарело
+afterEach(() => {
+    cleanup();
+});
+```
+
+Современные версии RTL делают это сами — правило: **не трогай `cleanup`, если не знаешь, зачем**.
+
+---
+
+### 6.3. Лишний `act`
+
+```ts
+// ❌ лишнее
+await act(async () => {
+    render(<MyComponent />);
+});
+```
+
+`render` и большинство событий уже обёрнуты во внутренний `act`.  
+Ручной `act` нужен в основном в тестах хуков или при вызове внешних функций, которые изменяют состояние React.
+
+---
+
+### 6.4. Неправильный выбор `getBy` / `queryBy` / `findBy`
+
+- Для проверки **наличия** элемента:
+    - `getBy*` (сразу) или `findBy*` (асинхронно).
+- Для проверки **отсутствия** элемента:
+    - `queryBy*` + `.not.toBeInTheDocument()`.
+
+**Примеры:**
+
+```ts
+// элемент должен появиться
+const error = await screen.findByText(/error/i);
+expect(error).toBeInTheDocument();
+
+// элемент не должен существовать
+expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
+```
+
+---
+
+### 6.5. Неправильное использование `waitFor`
+
+**Антипаттерн:**
+
+```ts
+await waitFor(() => {});
+```
+
+или
+
+```ts
+await waitFor(() => {
+  fireEvent.click(button);
+  expect(...).toBe(...);
+});
+```
+
+**Правильно:**
+
+- внутри `waitFor` — только проверки (`expect`),
+- события (`click`, `type`, вызовы функций) — **вне** `waitFor`.
+
+```ts
+await user.click(button);
+
+await waitFor(() => {
+    expect(screen.getByText(/done/i)).toBeInTheDocument();
+});
+```
+
+---
+
+### 6.6. Использование `container.querySelector` без необходимости
+
+**Антипаттерн:**
+
+```ts
+const button = container.querySelector('.btn-primary');
+```
+
+Если можно найти по роли и тексту — ищи так:
+
+```ts
+const button = screen.getByRole('button', {name: /save/i});
+```
+
+---
+
+### 6.7. Добавление ненужных `role` / `aria-*` ради тестов
+
+```tsx
+// ❌ плохо
+<button role="button">Click</button>
+```
+
+HTML уже даёт нужную роль по умолчанию.  
+`aria-*` и `role` должны использоваться ради доступности, а не ради тестов.
+
+---
+
+## 7. Практические советы и best practices
+
+### 7.1. Структура теста (AAA)
+
+Держим простой паттерн:
+
+```ts
+test('описание', async () => {
+    // Arrange
+    render(<Component />);
+
+    // Act
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', {name: /save/i}));
+
+    // Assert
+    expect(screen.getByText(/saved/i)).toBeInTheDocument();
+});
+```
+
+---
+
+### 7.2. Локальные хелперы и кастомный `render`
+
+Если много компонентов повторно используют одни и те же провайдеры (Redux, Router, Theme и т.п.), делаем свой хелпер:
+
+```ts
+// test-utils.tsx
+import {render} from '@testing-library/react';
+import {BrowserRouter} from 'react-router-dom';
+import {ThemeProvider} from '../theme';
+
+const customRender = (ui: React.ReactElement, options?: any) =>
+    render(ui, {
+        wrapper: ({children}) => (
+            <BrowserRouter>
+                <ThemeProvider>{children}</ThemeProvider>
+            </BrowserRouter>
+        ),
+        ...options
+    });
+
+export * from '@testing-library/react';
+export {customRender as render};
+```
+
+И в тестах:
+
+```ts
+import {render, screen} from '../test-utils';
+import {App} from './App';
+
+test('рендерит главную страницу', () => {
+    render(<App />);
+    expect(screen.getByText(/home/i)).toBeInTheDocument();
+});
+```
+
+---
+
+### 7.3. Моки и стабилизация окружения
+
+- Мокируй HTTP-запросы (`fetch`, `axios`).
+- Мокируй `Date` / `setTimeout` / `setInterval`, если логика от них зависит.
+- Всегда сбрасывай моки в `afterEach`.
+
+```ts
+afterEach(() => {
+    jest.clearAllMocks();
+});
+```
+
+## 8. Шаблон для новых тестов
+
+```tsx
+// Component.test.tsx
+import {render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {Component} from './Component';
+
+describe('<Component />', () => {
+    test('рендерит начальное состояние', () => {
+        render(<Component />);
+        expect(screen.getByText(/что-то/i)).toBeInTheDocument();
+    });
+
+    test('реагирует на действие пользователя', async () => {
+        const user = userEvent.setup();
+        render(<Component />);
+
+        await user.click(screen.getByRole('button', {name: /save/i}));
+
+        expect(screen.getByText(/saved/i)).toBeInTheDocument();
+    });
+});
+```
+
+Этот шаблон можно использовать как базу для всех новых тестов.
+
+---
+
+## 9. Резюме
+
+Кратко правила:
+
+1. Тестируй **поведение**, а не реализацию.
+2. Используй `screen`, `userEvent` и матчеры jest-dom.
+3. Выбирай селекторы по приоритету: `getByRole` → `getBy*Text/Label*` → `getByTestId`.
+4. Не используй лишние `cleanup`, `act`, `waitFor`.
+5. Моки и асинхронность должны быть контролируемыми и детерминированными.
+6. Для хуков — `renderHook` (+ `act`).
+7. Для контекстов — оборачивай тестируемый код провайдерами.
+8. Следи за читаемостью и простотой тестов — тесты — это тоже код в продакшене.

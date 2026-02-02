@@ -1,0 +1,231 @@
+---
+description: Добвление компонентов для лендинга
+alwaysApply: false
+---
+
+# Правила структуры компонентов для df-landing
+
+## Архитектура компонентов
+
+Проект использует двухуровневую архитектуру компонентов:
+
+### 1. `src/ui/` - Базовые UI компоненты
+
+- Атомарные, переиспользуемые компоненты
+- Минимальная бизнес-логика
+- Примеры: Button, Spinner, Input, Modal
+
+### 2. `src/components/` - Композитные компоненты
+
+- Сложные компоненты, состоящие из базовых UI
+- Содержат бизнес-логику
+- Примеры: UiDemo, UserProfile, ProductCard
+
+## Структура папок
+
+```
+src/
+├── ui/                          # Базовые UI компоненты
+│   ├── index.ts                 # Центральный экспорт всех UI компонентов
+│   ├── Button/
+│   │   ├── Button.tsx           # Основной компонент
+│   │   ├── Button.module.scss   # Стили компонента
+│   │   └── index.ts             # Локальный экспорт
+│   └── Spinner/
+│       ├── Spinner.tsx
+│       ├── Spinner.module.scss
+│       └── index.ts
+└── components/                  # Композитные компоненты
+    ├── index.ts                 # Центральный экспорт всех компонентов
+    └── uiDemo/
+        ├── UiDemo.tsx           # Основной компонент
+        ├── UiDemo.module.scss   # Стили компонента
+        └── index.ts             # Локальный экспорт
+```
+
+## Правила добавления новых компонентов
+
+### Для базовых UI компонентов (`src/ui/`)
+
+1. **Создание структуры папки:**
+
+   ```
+   src/ui/NewComponent/
+   ├── NewComponent.tsx
+   ├── NewComponent.module.scss
+   └── index.ts
+   ```
+
+2. **Конвенции именования:**
+
+   - Папка: `PascalCase` (например: `Button`, `DatePicker`)
+   - Файл компонента: `{ComponentName}.tsx`
+   - Файл стилей: `{ComponentName}.module.scss`
+   - CSS классы: `camelCase` (например: `.primaryButton`, `.isLoading`)
+
+3. **Шаблон файла компонента:**
+
+   ```tsx
+   // NewComponent.tsx
+   import s from "./NewComponent.module.scss";
+
+   export interface NewComponentProps {
+     // Определить пропсы с типами
+   }
+
+   export const NewComponent = ({ ...props }: NewComponentProps) => {
+     return <div className={s.newComponent}>{/* JSX содержимое */}</div>;
+   };
+   ```
+
+4. **Шаблон локального экспорта:**
+
+   ```ts
+   // index.ts
+   export { NewComponent } from "./NewComponent";
+   export type { NewComponentProps } from "./NewComponent";
+   ```
+
+5. **Обновить центральный экспорт:**
+   ```ts
+   // src/ui/index.ts
+   export { NewComponent } from "./NewComponent";
+   export type { NewComponentProps } from "./NewComponent";
+   ```
+
+### Для композитных компонентов (`src/components/`)
+
+1. **Создание структуры папки:**
+
+   ```
+   src/components/NewFeature/
+   ├── NewFeature.tsx
+   ├── NewFeature.module.scss
+   └── index.ts
+   ```
+
+2. **Конвенции именования:**
+
+   - Папка: `PascalCase` (например: `UserProfile`, `ProductCard`)
+   - Файл компонента: `PascalCase` (например: `UserProfile.tsx`)
+   - Остальные правила как для UI компонентов
+
+3. **Обновить центральный экспорт:**
+   ```ts
+   // src/components/index.ts
+   export { NewFeature } from "./NewFeature";
+   ```
+
+## Правила импорта
+
+### ✅ Правильно:
+
+```tsx
+// Импорт базовых UI компонентов
+import { Button, Spinner } from "@/ui";
+
+// Импорт композитных компонентов
+import { UiDemo, UserProfile } from "@/components";
+
+// Импорт типов
+import type { ButtonProps } from "@/ui";
+```
+
+### ❌ Неправильно:
+
+```tsx
+// Избегать прямых импортов
+import { Button } from "@/ui/Button/Button";
+import { UiDemo } from "@/components/uiDemo/UiDemo";
+```
+
+## Стилизация
+
+### CSS Modules
+
+- Использовать CSS Modules для изоляции стилей
+- Класс корневого элемента должен совпадать с именем компонента в `camelCase`
+- Вложенные классы именовать в `camelCase`
+
+### Пример:
+
+```scss
+// Button.module.scss
+.button {
+  // Базовые стили кнопки
+
+  &.isLoading {
+    // Стили для состояния загрузки
+  }
+
+  .icon {
+    // Стили для иконки внутри кнопки
+  }
+}
+```
+
+## TypeScript
+
+### Обязательные требования:
+
+- Все пропсы должны быть типизированы через интерфейсы
+- Экспортировать типы для переиспользования
+- Использовать дженерики для гибких компонентов
+
+### Пример:
+
+```tsx
+export interface ButtonProps {
+  variant?: "contained" | "outlined" | "text";
+  size?: "small" | "medium" | "large";
+  color?: "primary" | "secondary" | "danger";
+  disabled?: boolean;
+  loading?: boolean;
+  children: React.ReactNode;
+  onClick?: () => void;
+}
+```
+
+## Чек-лист для добавления нового компонента
+
+- [ ] Выбрана правильная категория (ui vs components)
+- [ ] Создана папка с правильным именем
+- [ ] Создан основной файл компонента
+- [ ] Создан файл стилей с CSS Modules
+- [ ] Создан локальный index.ts с экспортом
+- [ ] Обновлен центральный index.ts
+- [ ] Все пропсы типизированы
+- [ ] Типы экспортированы
+- [ ] Компонент следует конвенциям именования
+- [ ] Стили изолированы и правильно именованы
+
+## Примеры использования
+
+### Создание базового UI компонента:
+
+```bash
+# Структура
+mkdir src/ui/Input
+touch src/ui/Input/Input.tsx
+touch src/ui/Input/Input.module.scss
+touch src/ui/Input/index.ts
+
+# Добавить в src/ui/index.ts:
+# export { Input } from './Input';
+# export type { InputProps } from './Input';
+```
+
+### Создание композитного компонента:
+
+```bash
+# Структура
+mkdir src/components/userCard
+touch src/components/userCard/UserCard.tsx
+touch src/components/userCard/UserCard.module.scss
+touch src/components/userCard/index.ts
+
+# Добавить в src/components/index.ts:
+# export { UserCard } from './userCard';
+```
+
+Эта структура обеспечивает чистую архитектуру, переиспользуемость компонентов и удобство разработки.

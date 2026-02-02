@@ -1,0 +1,574 @@
+---
+description: Добвление нового справочника
+alwaysApply: false
+---
+
+# Правила добавления новых справочников
+
+## Обязательные входные данные
+
+Перед добавлением нового справочника необходимо **обязательно** иметь следующую информацию:
+
+1. **Название справочника** - CamelCase название (например: `EmploymentForm`, `HiredEmploymentType`, `Region`)
+2. **Путь эндпоинта** - путь API для запроса данных (например: `/employmentForm`, `/hiredEmploymentType`, `/region`)
+3. **Тип данных** - **полная структура данных**, которую возвращает API (обязательный параметр!)
+
+⚠️ **ВАЖНО:** Тип данных может быть любым! Не существует "базового" типа по умолчанию. Каждый справочник имеет свою уникальную структуру.
+
+## Примеры различных типов данных
+
+### Простой тип (EmploymentForm, HiredEmploymentType)
+
+```typescript
+{
+  id: string;
+  title: string;
+}
+```
+
+### Расширенный тип с дополнительными полями (LoanData)
+
+```typescript
+{
+  id: string;
+  title: string;
+  type: string | null;
+  order: number | null;
+  stageNumber: number | null;
+  terminalType: string | null;
+  customerNotify: string | null;
+}
+```
+
+### Тип с вложенными объектами (Bank)
+
+```typescript
+{
+  bank: string;
+  name: string;
+  keywords: string | null;
+  enabled: boolean;
+  logos: {
+    FULL_LOGO_LIGHT: string;
+    FULL_LOGO_DARK: string;
+    LOGO_LIGHT: string;
+    LOGO_DARK: string;
+    DEFAULT: string;
+  }
+}
+```
+
+### Тип региона (Region)
+
+```typescript
+{
+  fiasId: string;
+  regionWithType: string;
+  regionType: string;
+  regionTypeFull: string;
+  region: string;
+}
+```
+
+### Тип с минимальными полями
+
+```typescript
+{
+  value: string;
+  data: {
+    surname: string | null;
+    name: string | null;
+    patronymic: string | null;
+    gender: string | null;
+    source: string | null;
+  }
+}
+```
+
+## Пошаговый план добавления нового справочника
+
+### Шаг 1: Добавление типа в DadataTypes.ts
+
+**Файл:** `src/api/types/DadataTypes.ts`
+
+Добавить интерфейс Response для нового справочника **с точной структурой из обязательных входных данных**:
+
+```typescript
+export interface Dadata[НазваниеСправочника]Response {
+    // Здесь должна быть ТОЧНАЯ структура данных из API
+    // Скопируйте структуру из входных данных!
+}
+```
+
+**Примеры:**
+
+Простой тип:
+
+```typescript
+export interface DadataEmploymentFormResponse {
+  id: string;
+  title: string;
+}
+```
+
+Сложный тип:
+
+```typescript
+export interface DadataRegionResponse {
+  fiasId: string;
+  regionWithType: string;
+  regionType: string;
+  regionTypeFull: string;
+  region: string;
+}
+```
+
+Тип с вложенными объектами:
+
+```typescript
+export interface DadataBankResponse {
+  bank: string;
+  name: string;
+  keywords: string | null;
+  enabled: boolean;
+  logos: DadataBankLogosResponse;
+}
+
+export interface DadataBankLogosResponse {
+  FULL_LOGO_LIGHT: string;
+  FULL_LOGO_DARK: string;
+  LOGO_LIGHT: string;
+  LOGO_DARK: string;
+  DEFAULT: string;
+}
+```
+
+### Шаг 2: Добавление экспорта типа в index.ts
+
+**Файл:** `src/api/types/index.ts`
+
+Добавить новый тип в секцию экспорта DadataTypes:
+
+```typescript
+export type {
+    // ... существующие типы
+    Dadata[НазваниеСправочника]Response,
+    // ...
+} from './DadataTypes';
+```
+
+### Шаг 3: Добавление метода в DadataClient.ts
+
+**Файл:** `src/api/clients/DadataClient.ts`
+
+1. Добавить импорт типа Response:
+
+```typescript
+import {
+    // ... существующие импорты
+    Dadata[НазваниеСправочника]Response,
+    // ...
+} from '@/api/types';
+```
+
+2. Добавить метод получения данных:
+
+```typescript
+async get[НазваниеСправочника](options?: RequestOptions) {
+    const response = await this.get<Dadata[НазваниеСправочника]Response[]>(
+        `${process.env.NEXT_PUBLIC_DICT_PATH}/[путьЭндпоинта]`,
+        options
+    );
+    return response.data || [];
+}
+```
+
+**Пример:**
+
+```typescript
+async getEmploymentForm(options?: RequestOptions) {
+    const response = await this.get<DadataEmploymentFormResponse[]>(
+        `${process.env.NEXT_PUBLIC_DICT_PATH}/employmentForm`,
+        options
+    );
+    return response.data || [];
+}
+```
+
+### Шаг 4: Добавление модели в DadataModels.ts
+
+**Файл:** `src/models/DadataModels.ts`
+
+Создать класс модели данных с MobX observable. **Структура должна соответствовать Response типу**, но с camelCase именами и значениями по умолчанию:
+
+```typescript
+export class [НазваниеСправочника]Data {
+    // Поля должны совпадать с Response типом
+    // Используйте camelCase для имен полей
+    // Установите значения по умолчанию для каждого поля
+
+    constructor() {
+        makeAutoObservable(this);
+    }
+}
+```
+
+**Примеры:**
+
+Простой тип:
+
+```typescript
+export class EmploymentFormData {
+  id: string = "";
+  title: string = "";
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+}
+```
+
+Расширенный тип:
+
+```typescript
+export class RegionData {
+  fiasId: string = "";
+  regionWithType: string = "";
+  regionType: string = "";
+  regionTypeFull: string = "";
+  region: string = "";
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+}
+```
+
+Тип с вложенными объектами:
+
+```typescript
+export class BankData {
+  bank: string = "";
+  name: string = "";
+  keywords: string | null = null;
+  enabled: boolean = false;
+  logos: BankLogos = new BankLogos();
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+}
+
+export class BankLogos {
+  default: string | null = null;
+  fullLogoLight: string | null = null;
+  fullLogoDark: string | null = null;
+  logoLight: string | null = null;
+  logoDark: string | null = null;
+}
+```
+
+### Шаг 5: Добавление экспорта модели в index.ts
+
+**Файл:** `src/models/index.ts`
+
+Добавить новую модель в секцию экспорта DadataModels:
+
+```typescript
+export {
+    // ... существующие модели
+    [НазваниеСправочника]Data,
+    // ...
+} from './DadataModels';
+```
+
+### Шаг 6: Добавление мапперов в DadataMappers.ts
+
+**Файл:** `src/api/mappers/DadataMappers.ts`
+
+1. Добавить импорты:
+
+```typescript
+import {
+    // ... существующие импорты Response
+    Dadata[НазваниеСправочника]Response,
+    // ...
+} from '@api/types';
+
+import {
+    // ... существующие импорты Data
+    [НазваниеСправочника]Data,
+    // ...
+} from '@/models';
+```
+
+2. Добавить методы маппинга в класс `DadataMappers`. **Важно:** Замапьте ВСЕ поля из Response в Data!
+
+```typescript
+[названиеСправочника]ResponseTo[НазваниеСправочника]Data(
+    it: Dadata[НазваниеСправочника]Response
+): [НазваниеСправочника]Data {
+    const obj = new [НазваниеСправочника]Data();
+    // Замапьте КАЖДОЕ поле из Response в Data
+    // obj.поле = it.поле;
+    return obj;
+}
+
+[названиеСправочника]ResponseListTo[НазваниеСправочника]DataList(
+    it: Dadata[НазваниеСправочника]Response[]
+): [НазваниеСправочника]Data[] {
+    return it.map((it) => this.[названиеСправочника]ResponseTo[НазваниеСправочника]Data(it));
+}
+```
+
+**Примеры:**
+
+Простой маппинг:
+
+```typescript
+employmentFormResponseToEmploymentFormData(
+    it: DadataEmploymentFormResponse
+): EmploymentFormData {
+    const e = new EmploymentFormData();
+    e.id = it.id;
+    e.title = it.title;
+    return e;
+}
+
+employmentFormResponseListToEmploymentFormDataList(
+    it: DadataEmploymentFormResponse[]
+): EmploymentFormData[] {
+    return it.map((it) => this.employmentFormResponseToEmploymentFormData(it));
+}
+```
+
+Расширенный маппинг:
+
+```typescript
+regionResponseToRegionData(it: DadataRegionResponse): RegionData {
+    const a = new RegionData();
+    a.fiasId = it.fiasId;
+    a.regionWithType = it.regionWithType;
+    a.regionType = it.regionType;
+    a.regionTypeFull = it.regionTypeFull;
+    a.region = it.region;
+    return a;
+}
+
+regionResponseListToRegionDataList(it: DadataRegionResponse[]): RegionData[] {
+    return it.map((it) => this.regionResponseToRegionData(it));
+}
+```
+
+Маппинг с вложенными объектами:
+
+```typescript
+bankResponseToBankData(it: DadataBankResponse): BankData {
+    const b = new BankData();
+    b.bank = it.bank;
+    b.name = it.name;
+    b.keywords = it.keywords;
+    b.enabled = it.enabled;
+    b.logos = this.bankLogosResponseToBankLogos(it.logos); // маппинг вложенного объекта
+    return b;
+}
+
+bankLogosResponseToBankLogos(it: DadataBankLogosResponse): BankLogos {
+    const b = new BankLogos();
+    b.default = it.DEFAULT;
+    b.fullLogoLight = it.FULL_LOGO_LIGHT;
+    b.fullLogoDark = it.FULL_LOGO_DARK;
+    b.logoLight = it.LOGO_LIGHT;
+    b.logoDark = it.LOGO_DARK;
+    return b;
+}
+
+bankResponseListToBankDataList(it: DadataBankResponse[]): BankData[] {
+    return it.map((it) => this.bankResponseToBankData(it));
+}
+```
+
+### Шаг 7: Добавление сервиса в DadataService.ts
+
+**Файл:** `src/api/services/DadataService.ts`
+
+1. Добавить импорт модели данных:
+
+```typescript
+import {
+    // ... существующие импорты
+    [НазваниеСправочника]Data,
+    // ...
+} from '@/models';
+```
+
+2. Обновить тип `RequestType`:
+
+```typescript
+type RequestType =
+  | "region"
+  | "fio"
+  | "loanPurpose"
+  | "loanProgram"
+  | "employmentForm"
+  | "hiredEmploymentType"
+  | "incomeVerification"
+  | "[названиеСправочникаCamelCase]" // добавить новый тип
+  | "bank"
+  | "address";
+```
+
+3. Добавить метод получения данных:
+
+```typescript
+async get[НазваниеСправочника](): Promise<[НазваниеСправочника]Data[]> {
+    const response = await this.client.get[НазваниеСправочника]({
+        signal: this.abortController('[названиеСправочникаCamelCase]').signal
+    });
+    return this.mappers.[названиеСправочника]ResponseListTo[НазваниеСправочника]DataList(response);
+}
+```
+
+**Пример:**
+
+```typescript
+async getEmploymentForm(): Promise<EmploymentFormData[]> {
+    const response = await this.client.getEmploymentForm({
+        signal: this.abortController('employmentForm').signal
+    });
+    return this.mappers.employmentFormResponseListToEmploymentFormDataList(response);
+}
+```
+
+## Чек-лист проверки
+
+После добавления нового справочника проверьте:
+
+- [ ] Добавлен интерфейс Response в `DadataTypes.ts`
+- [ ] Экспортирован Response тип в `api/types/index.ts`
+- [ ] Добавлен метод в `DadataClient.ts` с правильным путем эндпоинта
+- [ ] Создан класс модели Data в `DadataModels.ts`
+- [ ] Экспортирована модель Data в `models/index.ts`
+- [ ] Добавлены оба метода маппера в `DadataMappers.ts`
+- [ ] Обновлен тип `RequestType` в `DadataService.ts`
+- [ ] Добавлен метод сервиса в `DadataService.ts`
+- [ ] Нет ошибок линтера (запустить `read_lints` для проверки)
+
+## Примеры реализации
+
+### Пример 1: Базовый справочник (EmploymentForm)
+
+**Входные данные:**
+
+- Название: `EmploymentForm`
+- Путь: `/employmentForm`
+- Тип: `{id: string; title: string}`
+
+**Результат:** См. примеры в каждом шаге выше
+
+### Пример 2: Справочник со сложной структурой (Region)
+
+**Входные данные:**
+
+- Название: `Region`
+- Путь: `/region`
+- Тип:
+
+```typescript
+{
+  fiasId: string;
+  regionWithType: string;
+  regionType: string;
+  regionTypeFull: string;
+  region: string;
+}
+```
+
+**Особенности:** Все поля должны быть добавлены в Response, Data и замаплены
+
+### Пример 3: Справочник с вложенными объектами (Bank)
+
+**Входные данные:**
+
+- Название: `Bank`
+- Путь: `/banks`
+- Тип:
+
+```typescript
+{
+  bank: string;
+  name: string;
+  keywords: string | null;
+  enabled: boolean;
+  logos: {
+    FULL_LOGO_LIGHT: string;
+    FULL_LOGO_DARK: string;
+    LOGO_LIGHT: string;
+    LOGO_DARK: string;
+    DEFAULT: string;
+  }
+}
+```
+
+**Особенности:**
+
+- Требует создания отдельного типа для вложенного объекта `logos`
+- Нужен дополнительный маппер для вложенного объекта
+- В модели Data нужен класс для вложенного объекта
+
+## Соглашения об именовании
+
+1. **Response типы:** `Dadata[Name]Response` (например: `DadataEmploymentFormResponse`)
+2. **Data модели:** `[Name]Data` (например: `EmploymentFormData`)
+3. **Методы клиента:** `get[Name]()` (например: `getEmploymentForm()`)
+4. **Методы маппера:**
+   - `[name]ResponseTo[Name]Data()` (например: `employmentFormResponseToEmploymentFormData()`)
+   - `[name]ResponseListTo[Name]DataList()` (например: `employmentFormResponseListToEmploymentFormDataList()`)
+5. **Методы сервиса:** `get[Name]()` (например: `getEmploymentForm()`)
+6. **RequestType значение:** `'[nameCamelCase]'` (например: `'employmentForm'`)
+
+## Переменные окружения
+
+Убедитесь, что в `.env` файле определена переменная:
+
+```
+NEXT_PUBLIC_DICT_PATH=<базовый_путь_к_справочникам>
+```
+
+Все эндпоинты справочников строятся относительно этого пути.
+
+## Структура файлов
+
+```
+df-landing/
+├── src/
+│   ├── api/
+│   │   ├── clients/
+│   │   │   └── DadataClient.ts          # Шаг 3
+│   │   ├── mappers/
+│   │   │   └── DadataMappers.ts         # Шаг 6
+│   │   ├── services/
+│   │   │   └── DadataService.ts         # Шаг 7
+│   │   └── types/
+│   │       ├── DadataTypes.ts           # Шаг 1
+│   │       └── index.ts                 # Шаг 2
+│   └── models/
+│       ├── DadataModels.ts              # Шаг 4
+│       └── index.ts                     # Шаг 5
+```
+
+## Отладка и тестирование
+
+1. Проверить, что запрос отправляется на правильный URL
+2. Проверить формат данных, возвращаемых API
+3. Убедиться, что маппинг работает корректно
+4. Проверить, что данные корректно отображаются в компонентах
+5. Запустить линтер для проверки ошибок TypeScript
+
+## Дополнительные замечания
+
+- Все справочники используют единый базовый путь через `NEXT_PUBLIC_DICT_PATH`
+- Используется паттерн AbortController для отмены запросов
+- Все модели данных используют MobX для реактивности
+- Соблюдается единая архитектура: Client → Mapper → Service
+- Типы разделены на Response (от API) и Data (для приложения)
