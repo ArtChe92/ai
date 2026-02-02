@@ -13,15 +13,7 @@
   "scripts": {
     "test": "node bin/cli.js --help"
   },
-  "keywords": [
-    "ai",
-    "claude",
-    "cursor",
-    "skills",
-    "accessibility",
-    "html"
-  ],
-  "author": "ArtChe92",
+  "author": "ArtChe",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0"

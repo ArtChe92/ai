@@ -1,6 +1,6 @@
 # @artche/ai
 
-AI Skills, Rules and Commands installer for Claude Code and Cursor.
+Установка skills, rules, agents и commands для Claude Code и Cursor.
 
 ## Установка и использование
 
